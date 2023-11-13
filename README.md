@@ -1,4 +1,4 @@
-This repo is forked for source code reading, the paper and code note reading recorded in `./ChatAFL.md`. There are more comments in source files, afl-fuzz.c, chatllm.h, chatllm.c.
+This repo is forked for paper and source-code reading, the reading note written in `./ChatAFL.md`. There are more comments in source files(afl-fuzz.c, chatllm.h, chatllm.c).
 
 # ChatAFL Artifact
 
