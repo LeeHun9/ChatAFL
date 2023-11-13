@@ -1,3 +1,5 @@
+This repo is forked for source code reading, the paper and code note reading recorded in `./ChatAFL.md`. There are more comments in source file, afl-fuzz.c, chatllm.h, chatllm.c.
+
 # ChatAFL Artifact
 
 ChatAFL is a protocol fuzzer guided by large language models (LLMs). It is built on top of [AFLNet](https://github.com/aflnet/aflnet) but integrates with three concrete components. Firstly, the fuzzer uses the LLM to extract a machine-readable grammar for a protocol that is used for structure-aware mutation. Secondly, the fuzzer uses the LLM to increase the diversity of messages in the recorded message sequences that are used as initial seeds. Lastly, the fuzzer uses the LLM to break out of a coverage plateau, where the LLM is prompted to generate messages to reach new states.
