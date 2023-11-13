@@ -12,7 +12,7 @@ We give at most 400 for the examples and 1300 for the stall prompt
 Similarly 1700 is for the example request in the seed enrichment
 */
 
-#define OPENAI_TOKEN "1"
+#define OPENAI_TOKEN "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"
 
 #define MAX_PROMPT_LENGTH 2048
 #define EXAMPLES_PROMPT_LENGTH 400

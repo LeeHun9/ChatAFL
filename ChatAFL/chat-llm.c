@@ -68,7 +68,7 @@ char *chat_with_llm(char *prompt, char *model, int tries, float temperature)
     {
         asprintf(&data, "{\"model\": \"gpt-3.5-turbo\",\"messages\": %s, \"max_tokens\": %d, \"temperature\": %f}", prompt, MAX_TOKENS, temperature);
     }
-    curl_global_init(CURL_GLOBAL_DEFAULT);
+    curl_global_init(CURL_GLOBAL_DEFAULT);  // 初始化 libcurl 库的全局状态
     do
     {
         struct MemoryStruct chunk;
@@ -76,21 +76,23 @@ char *chat_with_llm(char *prompt, char *model, int tries, float temperature)
         chunk.memory = malloc(1); /* will be grown as needed by the realloc above */
         chunk.size = 0;           /* no data at this point */
 
-        curl = curl_easy_init();
+        curl = curl_easy_init();    // 创建一个curl handle
         if (curl)
         {
+            // 用curl_slist链表设置http头部
             struct curl_slist *headers = NULL;
             headers = curl_slist_append(headers, auth_header);
             headers = curl_slist_append(headers, content_header);
             headers = curl_slist_append(headers, accept_header);
 
-            curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data);
-            curl_easy_setopt(curl, CURLOPT_URL, url);
-            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, chat_with_llm_helper);
-            curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);
+            // 设置选项
+            curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);    // 设置头部
+            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data);       // 设置POST请求数据
+            curl_easy_setopt(curl, CURLOPT_URL, url);               // 设置请求URL
+            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, chat_with_llm_helper);    // 设置回调函数，收到响应时调用
+            curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);  // 设置用户指定的缓冲区，将 HTTP 响应正文数据写入该缓冲区
 
-            res = curl_easy_perform(curl);
+            res = curl_easy_perform(curl);      // 发送http请求
 
             if (res == CURLE_OK)
             {
@@ -124,7 +126,7 @@ char *chat_with_llm(char *prompt, char *model, int tries, float temperature)
                     printf("Error response is: %s\n", chunk.memory);
                     sleep(2); // Sleep for a small amount of time to ensure that the service can recover
                 }
-                json_object_put(jobj);
+                json_object_put(jobj);  // 释放json对象
             }
             else
             {
@@ -406,7 +408,7 @@ void extract_message_grammars(char *answers, klist_t(gram) * grammar_list)
 
 int parse_pattern(pcre2_code *replacer, pcre2_match_data *match_data, const char *str, size_t len, char *pattern)
 {
-    strcat(pattern, "(?:");
+    strcat(pattern, "(?:"); // 
     // offset == 3;
     int rc = pcre2_match(replacer, str, len, 0, 0, match_data, NULL);
 
@@ -487,13 +489,13 @@ char *extract_message_pattern(const char *header_str, khash_t(field_table) * fie
         && header_str[message_len] != '\\' )
         {
             message_len++;
-        }
+        }   // 计算头部长度，并作为message_type，比如PLAY
         message_type = ck_alloc(message_len + 1);
         memcpy(message_type, header_str, message_len);
         message_type[message_len] = '\0';
 
         size_t len = strlen(header_str) - 1;
-        strcat(header_pattern, "^"); // Ensure that it captures the start of the string
+        strcat(header_pattern, "^"); // Ensure that it captures the start of the string 开始构造请求头的正则匹配式
         if (!parse_pattern(replacer, match_data, header_str, len, header_pattern))
         {
             patterns[0] = NULL;
@@ -509,7 +511,7 @@ char *extract_message_pattern(const char *header_str, khash_t(field_table) * fie
         if (!kh_exist(field_table, field_t_iter) || kh_value(field_table, field_t_iter) < (TEMPLATE_CONSISTENCY_COUNT / 2 + (TEMPLATE_CONSISTENCY_COUNT % 2)))
             continue;
 
-        if (!first)
+        if (!first)     // 不是第一次，添加分隔符 "|"
         {
             strcat(fields_pattern, "|");
         }
@@ -519,9 +521,9 @@ char *extract_message_pattern(const char *header_str, khash_t(field_table) * fie
         }
 
         json_object *field_v = json_object_new_string(kh_key(field_table, field_t_iter));
-        const char *str = json_object_to_json_string(field_v);
+        const char *str = json_object_to_json_string(field_v);  // str="\"CSeq: <<VALUE>>\\r\\n\""
         // We use the string in such an escaped format for easier debugging as the regex library supports parsing it properly
-        // The string contains quotations so they are ignored
+        // The string contains quotations so they are ignored 省略 " 号
         str++;
         size_t len = strlen(str) - 1;
         int matched = parse_pattern(replacer, match_data, str, len, fields_pattern);
@@ -536,7 +538,7 @@ char *extract_message_pattern(const char *header_str, khash_t(field_table) * fie
     strcat(fields_pattern, ")");
 
     if (first == 1)
-    { // convert from (?|) to (.+) when the group is empty
+    { // convert from (?|) to (.+) when the group is empty (.+)表示匹配任何字符串
         fields_pattern[1] = '.';
         fields_pattern[2] = '+';
     }
@@ -552,7 +554,7 @@ char *extract_message_pattern(const char *header_str, khash_t(field_table) * fie
         ck_write(debug_file, "\n", 1, debug_file_name);
         ck_write(debug_file, fields_pattern, strlen(fields_pattern), debug_file_name);
     }
-
+    // 分别header和fields的编译正则表达式，存到patterns[0]和patterns[1]
     {
         pcre2_code *p = pcre2_compile(header_pattern, PCRE2_ZERO_TERMINATED, 0, &errornumber, &erroroffset, NULL);
         pcre2_jit_compile(p, PCRE2_JIT_COMPLETE);
@@ -568,12 +570,12 @@ char *extract_message_pattern(const char *header_str, khash_t(field_table) * fie
 
 range_list starts_with(char *line, int length, pcre2_code *pattern)
 {
-    pcre2_match_data *match_data = pcre2_match_data_create_from_pattern(pattern, NULL);
+    pcre2_match_data *match_data = pcre2_match_data_create_from_pattern(pattern, NULL); // 准备匹配数据
 
     int rc = pcre2_match(pattern, line, length, 0, 0, match_data, NULL); // find the first range
 
     // printf("starts_with rc is %d\n", rc);
-    if (rc < 0)
+    if (rc < 0) // 匹配失败，释放对应资源
     {
         switch (rc)
         {
@@ -592,10 +594,10 @@ range_list starts_with(char *line, int length, pcre2_code *pattern)
 
     range_list dyn_ranges;
     kv_init(dyn_ranges);
-    PCRE2_SIZE *ovector = pcre2_get_ovector_pointer(match_data);
-    for (int i = 1; i < rc; i++)
+    PCRE2_SIZE *ovector = pcre2_get_ovector_pointer(match_data);    // ovector每两个元素表示一个匹配位置，ovector[2i]表示第i个匹配串开始位置，ovector[2i+1]表示结束位置
+    for (int i = 1; i < rc; i++)    // 将所有匹配部分都添加到dyn_ranges中，相当于拆分header
     {
-        if (ovector[2 * i] == -1)
+        if (ovector[2 * i] == -1)   // 表示该位置子字符串没有匹配到内容
             continue;
         // printf("Group %d %d %d\n",i, ovector[2 * i], ovector[2 * i + 1]);
         range v = {.start = ovector[2 * i], .len = ovector[2 * i + 1] - ovector[2 * i], .mutable = 1};
@@ -604,7 +606,7 @@ range_list starts_with(char *line, int length, pcre2_code *pattern)
         //  ranges[0][i - 1] = v;
     }
     range v = {.start = ovector[0], .len = ovector[1] - ovector[0], .mutable = 1};
-    kv_push(range, dyn_ranges, v); // add the global range at the end
+    kv_push(range, dyn_ranges, v); // add the global range at the end 全局变异也添加到列表中，此时该range存在于队列尾
 
     pcre2_match_data_free(match_data);
     return dyn_ranges;
@@ -617,9 +619,9 @@ range_list get_mutable_ranges(char *line, int length, int offset, pcre2_code *pa
     range_list dyn_ranges;
     kv_init(dyn_ranges);
 
-    for (;;) // catch all the other ranges
+    for (;;) // catch all the other ranges 直到所有匹配为止
     {
-        int rc = pcre2_match(pattern, line, length, offset, 0, match_data, NULL);
+        int rc = pcre2_match(pattern, line, length, offset, 0, match_data, NULL);   // 从offset位置开始匹配
         if (rc < 0)
         {
             switch (rc)
@@ -635,10 +637,10 @@ range_list get_mutable_ranges(char *line, int length, int offset, pcre2_code *pa
             match_data = NULL;
             break;
         }
-        PCRE2_SIZE *ovector = pcre2_get_ovector_pointer(match_data);
-        if (offset != ovector[0])
+        PCRE2_SIZE *ovector = pcre2_get_ovector_pointer(match_data);    // ovector存的是匹配字符的偏移位置
+        if (offset != ovector[0])   // offset != ovector[0] 表示还存在头末尾间和匹配第一个位置中间还存在一些字段，也作为变异range
         {
-            range v = {.start = offset, .len = ovector[0] - offset, .mutable = 1};
+            range v = {.start = offset, .len = ovector[0] - offset, .mutable = 1};  
             kv_push(range, dyn_ranges, v);
         }
 
@@ -674,7 +676,7 @@ range_list get_mutable_ranges(char *line, int length, int offset, pcre2_code *pa
     }
     return dyn_ranges;
 }
-
+// 替换一些转移字符
 char *unescape_string(const char *input)
 {
     size_t length = strlen(input);
@@ -822,7 +824,7 @@ void get_protocol_message_types(char *state_prompt, khash_t(strSet) * states_set
         }
     }
 }
-
+// 复制一个哈希集合
 khash_t(strSet) * duplicate_hash(khash_t(strSet) * set)
 {
     khash_t(strSet) *new_set = kh_init(strSet);
@@ -877,7 +879,7 @@ void make_combination(khash_t(strSet)* sequence, char** data , message_set_list*
 
 message_set_list message_combinations(khash_t(strSet)* sequence, int size)
 {
-    message_set_list res;
+    message_set_list res;   // 该类型是一个存放哈希表的vector
     kv_init(res);
     char* data[size];
     make_combination(sequence,data, &res, kh_begin(sequence), kh_end(sequence), 0, size);

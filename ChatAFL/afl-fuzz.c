@@ -430,7 +430,7 @@ char *protocol_name;
 // Reward fields - To be used
 u32 reward_random;
 u32 reward_grammar;
-
+// 语法存到protocol_patterns
 void setup_llm_grammars()
 {
 
@@ -440,7 +440,7 @@ void setup_llm_grammars()
   char *first_question;
   char *templates_prompt = construct_prompt_for_templates(protocol_name, &first_question);
 
-  for (int iter = 0; iter < TEMPLATE_CONSISTENCY_COUNT; iter++)
+  for (int iter = 0; iter < TEMPLATE_CONSISTENCY_COUNT; iter++)   // 循环5次来构造语法，保证一致性
   {
     klist_t(gram) *grammar_list = kl_init(gram);
 
@@ -458,12 +458,12 @@ void setup_llm_grammars()
     // printf("## Remaining templates:\n %s\n", remaining_templates);
 
     char *combined_templates = NULL;
-    asprintf(&combined_templates, "%s\n%s", templates_answer, remaining_templates);
+    asprintf(&combined_templates, "%s\n%s", templates_answer, remaining_templates); // 组合两次的响应语法模板
 
     char *grammar_output_path = alloc_printf("%s/protocol-grammars/llm-grammar-output-%d", out_dir, iter);
     int grammar_output_fd = open(grammar_output_path, O_WRONLY | O_CREAT, 0600);
 
-    ck_write(grammar_output_fd, combined_templates, strlen(combined_templates), grammar_output_path);
+    ck_write(grammar_output_fd, combined_templates, strlen(combined_templates), grammar_output_path); // 语法保存到文件 llm-grammar-output-iter
 
     close(grammar_output_fd);
     ck_free(grammar_output_path);
@@ -472,32 +472,32 @@ void setup_llm_grammars()
 
     kliter_t(gram) * iter;
     for (iter = kl_begin(grammar_list); iter != kl_end(grammar_list); iter = kl_next(iter))
-    {
+    { // header
       json_object *jobj = kl_val(iter);
 
       json_object *header = json_object_array_get_idx(jobj, 0);
 
       int absent;
 
-      const char *header_str = json_object_get_string(header);
+      const char *header_str = json_object_get_string(header);  // 从 JSON 对象获取标头字符串
 
-      khiter_t k = kh_put(consistency_table, const_table, header_str, &absent);
-      if (absent)
+      khiter_t k = kh_put(consistency_table, const_table, header_str, &absent); // 将header字符串插入consistency_table中
+      if (absent) // 不存在。创建field_table插入到const_table的k键（header）位置
       {
         khash_t(field_table) *field_table = kh_init(field_table);
-        kh_value(const_table, k) = field_table;
+        kh_value(const_table, k) = field_ table;
       }
-
+      // 遍历剩余field
       for (int i = 1; i < json_object_array_length(jobj); i++)
       {
         const char *v = json_object_get_string(json_object_array_get_idx(jobj, i));
-        khash_t(field_table) *field_table = kh_value(const_table, k);
-        khiter_t field_k = kh_put(field_table, field_table, v, &absent);
+        khash_t(field_table) *field_table = kh_value(const_table, k);     // 获取header对应的field_table
+        khiter_t field_k = kh_put(field_table, field_table, v, &absent);  // 将读到的字符串添加到field_table
         if (absent)
         {
-          kh_value(field_table, field_k) = 0;
+          kh_value(field_table, field_k) = 0; // 创建对应的键
         }
-        kh_value(field_table, field_k)++;
+        kh_value(field_table, field_k)++;     // 键对应的值++
       }
     }
     kl_destroy_gram(grammar_list);
@@ -527,13 +527,13 @@ void setup_llm_grammars()
       char *pattern_path = alloc_printf("%s/protocol-grammars/pattern-%d", out_dir, pattern_index);
       pattern_index++;
       int pattern_fd = open(pattern_path, O_WRONLY | O_CREAT, 0600);
-
+      // patterns指针指向已编译好的正则表达式
       char *message_type = extract_message_pattern(header_str, field_table, patterns, pattern_fd, pattern_path);
       if (message_type != NULL)
       {
         int discard;
-        kh_put(strSet, message_types_set, message_type, &discard);
-        *kl_pushp(rang, protocol_patterns) = patterns;
+        kh_put(strSet, message_types_set, message_type, &discard);  // 消息类型都存到message_types_set
+        *kl_pushp(rang, protocol_patterns) = patterns; // 将本次的正则匹配式push到protocol_patterns中
       }
 
       json_object_put(header_v);
@@ -552,7 +552,7 @@ range_list parse_buffer(char *buf, size_t buf_len)
   range_list best_decomposition;
   kv_init(best_decomposition);
   kliter_t(rang) * iter_rang;
-  // Find a valid decomposition of the buffer, according to a header pattern
+  // Find a valid decomposition of the buffer, according to a header pattern 搜寻有效的语法模式
   for (iter_rang = kl_begin(protocol_patterns); iter_rang != kl_end(protocol_patterns); iter_rang = kl_next(iter_rang))
   {
     pcre2_code **patterns = kl_val(iter_rang);
@@ -561,7 +561,7 @@ range_list parse_buffer(char *buf, size_t buf_len)
 
     if(header_pattern == NULL || fields_pattern == NULL) continue;
 
-    range_list header_groups = starts_with(buf, buf_len, header_pattern);
+    range_list header_groups = starts_with(buf, buf_len, header_pattern); // 使用当前的模式匹配outbuf所有头，存置header_groups
 
     if (kv_size(header_groups) == 0)
     {
@@ -2682,7 +2682,7 @@ void get_seeds_with_messsage_types(const char *in_dir, khash_t(strSet) * message
       {
         header_len++;
       }
-
+      // 提取消息头部作为类型，判断是否在消息类型集合中
       char *header = ck_alloc(header_len + 1);
       memcpy(header, nl_file_content + regions[j].start_byte, header_len);
       header[header_len] = '\0';
@@ -2690,13 +2690,13 @@ void get_seeds_with_messsage_types(const char *in_dir, khash_t(strSet) * message
       khiter_t k = kh_get(strSet, messages, header);
       if (kh_exist(messages, k))
       {
-        kh_del(strSet, messages, k);
+        kh_del(strSet, messages, k); //若存在该类型，删除该类型
       }
       ck_free(header);
     }
 
     ck_free(regions);
-
+    // 剩下的就是该种子文件中未包含的消息类型
     if(kh_size(messages) == 0) 
     {
       kh_destroy(strSet,messages);
@@ -2734,7 +2734,7 @@ void get_seeds_with_messsage_types(const char *in_dir, khash_t(strSet) * message
         // printf("## Formatted file content:\n %s\n", formatted_nl_file_content);
         if (formatted_unescaped_client_requests == NULL || strcmp(formatted_unescaped_client_requests, formatted_nl_file_content) == 0)
         {
-          printf("## Skip the same seed\n");
+          printf("## Skip the same seed\n"); 
           continue;
         }
 
@@ -6843,6 +6843,7 @@ AFLNET_REGIONS_SELECTION:;
     count++;
   }
 
+  // overcome coverage plateau
   if (uninteresting_times >= UNINTERESTING_THRESHOLD && chat_times < CHATTING_THRESHOLD)
   {
     uninteresting_times = 0;
@@ -6867,14 +6868,14 @@ AFLNET_REGIONS_SELECTION:;
       int i = 0;
       int empty = 1;
       int prev_len = 0;
-      for (; i < response_count && it_pref != M2_prev; i++, it_pref = kl_next(it_pref))
+      for (; i < response_count && it_pref != M2_prev; i++, it_pref = kl_next(it_pref)) // 遍历到 M2_prev
       {
         empty = 0;
 
         json_object *request_v = json_object_new_string_len(kl_val(it_pref)->mdata, kl_val(it_pref)->msize);
         char *request = strdup(json_object_to_json_string(request_v));
-        json_object_put(request_v);
-        int request_len = strlen(request) - 2;
+        json_object_put(request_v); // free json object
+        int request_len = strlen(request) - 2;  // "/r/n"
         request++;
         for (int i = 0; i < request_len; i++)
         {
@@ -6886,7 +6887,7 @@ AFLNET_REGIONS_SELECTION:;
         char *response = strdup(json_object_to_json_string(response_v));
         json_object_put(response_v);
         prev_len = response_bytes_temp[i];
-        int response_len = strlen(response) - 2;
+        int response_len = strlen(response) - 2;  // "/r/n"
         response++;
 
         for (int i = 0; i < response_len; i++)
@@ -6895,7 +6896,7 @@ AFLNET_REGIONS_SELECTION:;
             response[i] = ' ';
         }
 
-        if (i == 0)
+        if (i == 0) // first message
         {
           examples_len = asprintf(&examples, "Request-1:\\n%.*s\\nRequest-2:\\n%.*s\\n", request_len, request, request_len, request);
         }
@@ -6933,7 +6934,7 @@ AFLNET_REGIONS_SELECTION:;
 
         if (examples_len > EXAMPLES_PROMPT_LENGTH)
         {
-          int offset = examples_len - EXAMPLES_PROMPT_LENGTH;
+          int offset = examples_len - EXAMPLES_PROMPT_LENGTH; //
           if (examples[offset - 1] == '\\')
           {
             offset++;
@@ -7050,7 +7051,7 @@ AFLNET_REGIONS_SELECTION:;
   orig_in = in_buf;
 
   out_buf = ck_alloc_nozero(in_buf_size);
-  memcpy(out_buf, in_buf, in_buf_size);
+  memcpy(out_buf, in_buf, in_buf_size);   // outbuf中为M2
 
   // Update len to keep the correct size of the buffer being mutated
   len = in_buf_size;
@@ -8170,7 +8171,7 @@ havoc_stage:
   {
     stage_name = "havoc explore";
     stage_short = "havoc_explore";
-    // exploration - fully random search
+    // exploration - fully random search 对整个M2做随机变异
     range v = {.len = temp_len, .start = 0, .mutable = 1};
     kv_push(range, original_ranges, v);
   }
@@ -8178,7 +8179,7 @@ havoc_stage:
   {
     stage_name = "havoc exploit";
     stage_short = "havoc_exploit";
-    // exploitation - utilize the grammars we have
+    // exploitation - utilize the grammars we have 使用语法对M2进行变异，只变异value部分？
 
     original_ranges = parse_buffer(out_buf, temp_len);
   }
@@ -8643,7 +8644,7 @@ havoc_stage:
         ck_free(out_buf);
         ck_free(ranges);
 
-        out_buf = new_buf;
+        out_buf = new_buf;    // 这里是直接替换掉outbuf，更新相关ranges，并作为后续变异
         temp_len = src_region_len;
         range_list temp_ranges = parse_buffer(out_buf, temp_len);
         rc = kv_size(temp_ranges);
@@ -8728,12 +8729,12 @@ havoc_stage:
         memcpy(start_dest, start_src, ranges[range_choice].len);
 
         start_dest += ranges[range_choice].len;
-
+        // duplicate
         memcpy(start_dest, start_src, ranges[range_choice].len);
 
         start_dest += ranges[range_choice].len;
         start_src += ranges[range_choice].len;
-
+        // rest outbuf
         memcpy(start_dest, start_src,
                temp_len - (ranges[range_choice].start + ranges[range_choice].len));
 
@@ -8756,7 +8757,7 @@ havoc_stage:
       goto abandon_entry;
 
     /* out_buf might have been mangled a bit, so let's restore it to its
-       original size and shape. */
+       original size and shape. 恢复in_buf，进行下一次变异操作*/
 
     if (temp_len < len)
       out_buf = ck_realloc(out_buf, len);
@@ -10683,8 +10684,8 @@ int main(int argc, char **argv)
     protocol_patterns = kl_init(rang);
     message_types_set = kh_init(strSet);
 
-    setup_llm_grammars();
-    enrich_testcases();
+    setup_llm_grammars(); // 设置语法
+    enrich_testcases();   // 丰富初始测试用例
   }
   read_testcases();
   load_auto();
